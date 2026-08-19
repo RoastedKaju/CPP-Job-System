@@ -82,6 +82,9 @@ void ExampleThree()
 
 void ExampleFour()
 {
+    // This function is not meant to execute, it is just theory
+    return;
+
     // std::memory_order_relaxed
     // std::memory_order_acquire
     // std::memory_order_release
@@ -91,13 +94,139 @@ void ExampleFour()
     // Think about it like this:
     // Thread 1: "I finished preparing the data."
     // Thread 2 needs to see: Data and the fact that Thread 1 finished.
+
+    // memory order relaxed means: I don't care when other memory becomes visible, I just need the counter to be safe
+    std::atomic<int> framesRendered{0};
+    framesRendered.fetch_add(1, std::memory_order_relaxed);
+
+    // release and acquire
+    // this pair establishes a happens-before relationship
+    // very important for lock-free programming
+    std::atomic<bool> ready{false};
+    int data{0};
+    // Usually inside another function
+    // Thread 1 will do
+    data = 42;
+    ready.store(true, std::memory_order_release);
+    // Then thread 2 will acquire it to print out the data
+    if (ready.load(std::memory_order_acquire))
+    {
+        std::cout << "Data: " << data << std::endl;
+    }
+
+    // Memory order sequential consistency, this is the default order
+    // It means: Give me the easiest to understand, strongest ordering
+    std::atomic<int> x{0};
+    x.store(10);
+
+    // A rough mental model
+    // Relaxed: Atomic, but don't need to sync other memory
+    // Acquired: "I can safely see what was released before this"
+    // Release: "Publish my previous write"
+    // Acquire-Release: Acquire + Release
+    // Sequential Consistency: Strongest
+}
+
+int exampleFiveData = 0;
+std::atomic<bool> exampleFiveReady{false};
+
+// Think about it as a function to populate a work queue
+void PopulateData()
+{
+    exampleFiveData = 123;
+    // Simulate some delay
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    // publish the previous write
+    exampleFiveReady.store(true, std::memory_order_release);
+}
+// This one reads the task after the work queue is populated
+void ReadData()
+{
+    // wait until the ready-flag has been published
+    while (true)
+    {
+        if (exampleFiveReady.load(std::memory_order_acquire))
+        {
+            std::cout << "Example Five Data is: " << exampleFiveData << '\n';
+            break;
+        }
+    }
+}
+
+void ExampleFive()
+{
+    // Lets make a tiny producer/consumer example
+    std::thread t1{PopulateData};
+    std::thread t2{ReadData};
+
+    t1.join();
+    t2.join();
+}
+
+// until now you have been using something called spinning which uses the while loop
+// the downside of spinning is that it wastes CPU cycles
+//      while (!ready.load()) {}
+// So, instead you would use wait() and notify()
+std::atomic<bool> exampleSixReady{false};
+
+void PrepareForWorker()
+{
+    std::cout << "Preparing work for worker function.\n";
+    // Fill up some arrays, setup some values
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    // Change the ready to true and then notify
+    exampleSixReady.store(true);
+    exampleSixReady.notify_one();
+}
+
+void Worker()
+{
+    // This means wait until ready is no longer false
+    exampleSixReady.wait(false);
+
+    std::cout << "Worker Started!\n";
+}
+
+void ExampleSix()
+{
+    std::thread t1{PrepareForWorker};
+    std::thread t2{Worker};
+
+    t1.join();
+    t2.join();
 }
 
 int main()
 {
-    // ExampleOne();
-    ExampleTwo();
-    ExampleThree();
+    int inputOption{0};
+
+    std::cout << "Choose which example to run: ";
+    std::cin >> inputOption;
+
+    switch (inputOption)
+    {
+    case 1:
+        ExampleOne();
+        break;
+    case 2:
+        ExampleTwo();
+        break;
+    case 3:
+        ExampleThree();
+        break;
+    case 4:
+        ExampleFour();
+        break;
+    case 5:
+        ExampleFive();
+        break;
+    case 6:
+        ExampleSix();
+        break;
+
+    default:
+        break;
+    }
 
     return EXIT_SUCCESS;
 }

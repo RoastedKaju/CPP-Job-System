@@ -53,9 +53,11 @@ public:
         }
 
         // Writing item into buffer doesn't need ordering because the visiblity is controlled by release on bottom
+        // The index is just Index % Capacity, but since modulo is expensive we replace it with Index & (Capacity - 1)
         mBuffer[static_cast<std::size_t>(bottom) & kMask].store(item, std::memory_order_relaxed);
 
         // Release here ensures that the item written into buffer is visible to other threads befor they see the updated bottom.
+        // You can also do fetch add (1, release) here but since only owner thread will be accessing this function, store is far cheaper
         mBottom.store(bottom + 1, std::memory_order_release);
         return true;
     }
