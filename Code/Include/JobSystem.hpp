@@ -162,7 +162,7 @@ private:
         }
     }
 
-    template <typename T>
+    template <typename F>
     struct ParallelForData
     {
         uint32_t begin;
@@ -171,7 +171,7 @@ private:
         const F *function;
     };
 
-    template <typename T>
+    template <typename F>
     static void ParallelForJobEntry(Job *job, const void *rawData)
     {
         const auto *data = static_cast<const ParallelForData<F> *>(rawData);
@@ -191,7 +191,7 @@ private:
         }
         else
         {
-            for (uint32_t i = 0; i < data->count, ++i)
+            for (uint32_t i = 0; i < data->count; ++i)
             {
                 (*data->function)(data->begin + i);
             }
